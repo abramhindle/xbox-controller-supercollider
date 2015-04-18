@@ -1,3 +1,10 @@
+
+Import XBox360 controller into supercollider through OSX on /xbox
+
+-- By Abram Hindle
+
+99% of the code Based on:
+
 -------------------------------------------------------------------------------
 XboxController
 Martin O'Hanlon (martin@ohanlonweb.com)
