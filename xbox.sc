@@ -47,6 +47,9 @@ SynthDef(\noise,
 
 x = Synth(\hydro4,[\out,0]);
 y = Synth(\hydro4,[\out,1]);
+~x2 = Synth(\hydro4,[\out,0]);
+~y2 = Synth(\hydro4,[\out,1]);
+
 ~h21 = Synth(\hydro2,[\amp,0,\freq,440,\out,0]);
 ~h22 = Synth(\hydro2,[\amp,0,\freq,440*2,\out,1]);
 ~h23 = Synth(\hydro2,[\amp,0,\freq,440*3,\out,0]);
@@ -94,6 +97,9 @@ y.set(\out,1);
 
 ~xhz = 440;
 ~yhz = 440;
+~x2hz = 440;
+~y2hz = 440;
+
 ~namp = 0.0;
 ~nfreq = 440;
 ~listener = {
@@ -122,9 +128,13 @@ y.set(\out,1);
 };
 
 
+
 ~looper = {
 	if(~xLTHUMBX != 0.0,{ ~xhz = (~xLTHUMBX/101.0) + ~xhz; x.set(\freq,~xhz) });
 	if(~xRTHUMBX != 0.0,{ ~yhz = (~xRTHUMBX/101.0) + ~yhz; y.set(\freq,~yhz) });
+	if(~xLTHUMBY != 0.0,{ ~x2hz = (~xLTHUMBY/101.0) + ~x2hz; ~x2.set(\freq,~x2hz) });
+	if(~xRTHUMBY != 0.0,{ ~y2hz = (~xRTHUMBY/101.0) + ~y2hz; ~y2.set(\freq,~y2hz) });
+
 	~rnoise.set(\amp,~xRTRIGGER/100.0);
 	~lnoise.set(\amp,~xLTRIGGER/100.0);
 	~lnoise.set(\freq,~xhz/10);
