@@ -13,7 +13,7 @@ if __name__ == '__main__':
         liblo.send(target, "/xbox", *myv)
         print "%s" % myv
 
-    xboxCont = xb.XboxController(controlCallBack, deadzone = 30, scale = 100, invertYAxis = True)
+    xboxCont = xb.XboxController(controlCallBack, joystickNo = 1, deadzone = 30, scale = 100, invertYAxis = True)
 
     try:
         xboxCont.start()
