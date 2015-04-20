@@ -102,9 +102,8 @@ y.set(\out,1);
 
 ~namp = 0.0;
 ~nfreq = 440;
-~listener = {
-	|msg|
-	//var xLTHUMBX ,xLTHUMBY ,xRTHUMBX ,xRTHUMBY ,xRTRIGGER ,xLTRIGGER ,xA ,xB ,xX ,xY ,xLB ,xRB ,xBACK ,xSTART ,xXBOX ,xLEFTTHUMB ,xRIGHTTHUMB ,xDPADX, xDPADY;
+
+~msgsetter = { |msg|
 	~xLTHUMBX = msg[ 1 ];
 	~xLTHUMBY = msg[ 2 ];
 	~xRTHUMBX = msg[ 3 ];
@@ -124,9 +123,72 @@ y.set(\out,1);
 	~xRIGHTTHUMB = msg[ 17 ];
 	~xDPADX = msg[ 18 ];
 	~xDPADY = msg[ 19 ];
-	msg.postln;
 };
 
+~listener = {
+	|msg|
+	//var xLTHUMBX ,xLTHUMBY ,xRTHUMBX ,xRTHUMBY ,xRTRIGGER ,xLTRIGGER ,xA ,xB ,xX ,xY ,xLB ,xRB ,xBACK ,xSTART ,xXBOX ,xLEFTTHUMB ,xRIGHTTHUMB ,xDPADX, xDPADY;
+	~msgsetter.(msg);
+};
+
+
+~fireballpat = ["_D____","FD____","F_A___" ];
+~fireballpat2 = ["_D____","FD____","F_____","F_A___" ];
+~dragonpunchpat = ["F_____","_D____","FDA___" ];
+~dragonpunchpat2 = ["F_____","_D____","FD____","FDA___" ];
+~whirlwindpat = ["_D____","BD____","B__B__" ];
+~whirlwindpat2 = ["_D____","BD____","B_____","B__B__" ];
+
+
+~patterns = [
+	['fireball',~fireballpat],
+	['fireball',~fireballpat2],
+	['dragonpunch',~dragonpunchpat],
+	['dragonpunch',~dragonpunchpat2],
+	['whirlwind',~whirlwindpat],
+	['whirlwind',~whirlwindpat2]
+];
+
+
+~xbstr = {|msg|
+	~msgsetter.(msg);
+	[
+		if((~xLTHUMBX < 15)&&(~xLTHUMBX > -15),"_",
+			if(~xLTHUMBX > 0,"F","B")),
+		if((~xLTHUMBY < 15)&&(~xLTHUMBY > -15),"_",
+			if(~xLTHUMBY > 0,"U","D")),
+		if(~xA == 0,"_","A"),
+		if(~xB == 0,"_","B"),
+		if(~xX == 0,"_","X"),
+		if(~xY == 0,"_","Y")
+	].join;
+};
+
+~compilepat = {
+	|pat|
+	pat.collect{|str| ["(",str,")"].join }.join("+")
+};
+
+~mkemitter = {|assoc|	
+	var func,state,pats;
+	pats = assoc.collect {|v| [v[0],~compilepat.(v[1])] };
+	state = Array.new(maxSize:100);
+	func = {
+		|sym|
+		var str,emit;
+		state.add(sym);
+		str = state.join;
+		emit = "";
+		pats.collect { |v|
+			if(v[1].matchRegexp(str),{
+				emit = v[0];
+				state = Array.new(maxSize:100);
+			})
+		};
+		emit
+	};
+	func
+};
 
 
 ~looper = {
@@ -168,3 +230,96 @@ OSCFunc.newMatching(~listener, '/xbox');
 
 
 
+// tests
+
+~fireballtest = [
+	[ "/xbox", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+	[ "/xbox", 0, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+	[ "/xbox", 30, -30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ],
+	[ "/xbox", 100, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ]
+];
+~fireballsym = [
+	"_D____",
+	"_D____",
+	"_D____",
+	"_D____",
+	"_D____",
+	"FD____",
+	"FD____",
+	"FD____",
+	"FD____",
+	"F_A___",
+	"F_A___", 
+	"F_A___",
+];
+~notfireballsym = [
+	"_D____",
+	"_D____",
+	"_D____",
+	"_D____",
+	"_D____",
+	"FD____",
+	"FD____",
+	"FD____",
+	"FD____",
+	"F_A___",
+	"F_A___", 
+	"F_A___",
+];
+~fireballemitout = [
+	"", //"_D____",
+	"", //"_D____",
+	"", //"_D____",
+	"", //"_D____",
+	"", //"_D____",
+	"", //"FD____",
+	"", //"FD____",
+	"", //"FD____",
+	"", //"FD____",
+	"fireball", //"F_A___",
+	"", //"F_A___", 
+	"", //"F_A___",
+];
+
+
+
+
+~fireballout = ["______", "_D____","FD____","F_A___" ];
+~failures = 0;
+~successes = 0;
+~assert = {|x,str|
+	if(x,{~successes = ~successes+1},{"Failure".postln;str.postln;~failures=~failures+1});
+};
+
+~test = {
+	var out,fbout,moveemitter;
+	// test if we can map xbox to strings
+	out = ~fireballtest.collect {|l| ~xbstr.(l) };
+	~assert.(out == ~fireballout,"XB2Str");
+	// moveemitter eats move symbols
+	// lets make sure it can see fireball!
+	moveemitter = ~mkemitter.( [['fireball',~fireballpat]] );
+	fbout = ~fireballsym.collect { |sym| moveemitter.(sym) };
+	~assert.(fbout.join == ~fireballemitout.join,"Emission");
+
+	moveemitter = ~mkemitter.(  ~patterns );
+	fbout = ~fireballsym.collect { |sym| moveemitter.(sym) };
+	~assert.(fbout.join == ~fireballemitout.join,"FB Emission");
+	fbout = ~whirlwindpat.collect {|sym| moveemitter.(sym) };
+	~assert.(fbout.join == ["","","whirlwind"].join,"WW Emission");
+	"OK" + ~successes + "passed"+ ~failures +"failed"
+};
+
+x = ~mkemitter.( [ ['fireball',~fireballpat]] );
+x.(~fireballpat[2]);
+~testre = {
+  // test how re's work
+  var str,re="(_D____)+(FD____)+(F_A___)";
+  str = "_D____FD____F_A___";
+  re.matchRegexp(str);
+  str = "_D____FD____F_AB__";
+  not(re.matchRegexp(str));
+  str = "_D_____D_____D_____D____FD____FD____FD____FD____FD____F_A___";
+  re.matchRegexp(str);
+};
+~test.();
