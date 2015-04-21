@@ -393,7 +393,7 @@ OSCFunc.newMatching(~listener, '/xbox');
 
 x = ~mkemitter.( [ ['fireball',~fireballpat]] );
 x.(~fireballpat[2]);
-~testre = {
+~test = {
   // test how re's work
   var str,re="(_D____)+(FD____)+(F_A___)";
   str = "_D____FD____F_A___";
