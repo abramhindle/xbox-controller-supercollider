@@ -6,10 +6,11 @@ s.plotTree;
 s.scope;
 
 SynthDef(\hydro4, {
-	|out=0,amp=1.0,freq=440|
+	|out=0,amp=1.0,freq=440,gate=1|
 	var nsize,n = (2..10);
 	nsize = n.size;
 	Out.ar(out,
+		EnvGen.kr(Env.cutoff(1), gate, doneAction:2) *
 		amp * 
 		(
 			n.collect {arg i; 
@@ -45,8 +46,8 @@ SynthDef(\noise,
 
 
 
-x = Synth(\hydro4,[\out,0]);
-y = Synth(\hydro4,[\out,1]);
+~x1 = Synth(\hydro4,[\out,0]);
+~y1 = Synth(\hydro4,[\out,1]);
 ~x2 = Synth(\hydro4,[\out,0]);
 ~y2 = Synth(\hydro4,[\out,1]);
 
@@ -54,7 +55,7 @@ y = Synth(\hydro4,[\out,1]);
 ~h22 = Synth(\hydro2,[\amp,0,\freq,440*2,\out,1]);
 ~h23 = Synth(\hydro2,[\amp,0,\freq,440*3,\out,0]);
 ~h24 = Synth(\hydro2,[\amp,0,\freq,440*4,\out,1]);
-y.set(\out,1);
+
 ~lnoise = Synth(\noise,[\amp,0,\out,0]);
 ~rnoise = Synth(\noise,[\amp,0,\out,1]);
 ~anoise = Synth(\noise,[\amp,0,\freq,100,\out,0]);
@@ -67,6 +68,7 @@ y.set(\out,1);
 ~startnoise = Synth(\noise,[\amp,0,\freq,800,\out,0]);
 ~ltnoise = Synth(\noise,[\amp,0,\freq,1600,\out,1]);
 ~rtnoise = Synth(\noise,[\amp,0,\freq,3200,\out,0]);
+
 
 
 //~noise.set(\amp,0.1)
@@ -127,8 +129,16 @@ y.set(\out,1);
 
 ~listener = {
 	|msg|
+	var move,nmove,xbs;
 	//var xLTHUMBX ,xLTHUMBY ,xRTHUMBX ,xRTHUMBY ,xRTRIGGER ,xLTRIGGER ,xA ,xB ,xX ,xY ,xLB ,xRB ,xBACK ,xSTART ,xXBOX ,xLEFTTHUMB ,xRIGHTTHUMB ,xDPADX, xDPADY;
+	//msg.postln;
 	~msgsetter.(msg);
+	xbs = ~xbsyms.(msg);
+	//[\xbs,xbs].postln;
+	nmove = ~moveemitter.(xbs);
+	//if(nmove!="",{nmove.postln},{});
+	~moveresponder.( nmove  );
+
 };
 
 
@@ -136,26 +146,51 @@ y.set(\out,1);
 ~fireballpat2 = ["_D____","FD____","F_____","F_A___" ];
 ~dragonpunchpat = ["F_____","_D____","FDA___" ];
 ~dragonpunchpat2 = ["F_____","_D____","FD____","FDA___" ];
+~dragonpunchpat3 = ["F_____","FD____","_D____","FDA___" ];
+~dragonpunchpat4 = ["F_____","FD____","_D____","FD____","FDA___" ];
 ~whirlwindpat = ["_D____","BD____","B__B__" ];
 ~whirlwindpat2 = ["_D____","BD____","B_____","B__B__" ];
+~sonic1 = ["B_____","F.____","F.A___"];
+~sonic11 =    ["B_____","BU____","F_____","F_A___"];
+~sonic12 =    ["B_____","BU____","F_A___"];
+~sonic13 =    ["B_____","BU____","FU____","F_A___"];
+~sonic14 =    ["B_____","BU____","FU____","F_____","F_A___"];
+~sonic2 =     ["B_____","F_A___"];
+~flashkick1 = ["_D____","_U____","_U_B__"];
+~flashkick2 = ["_D____","_U_B__"];
 
 
 ~patterns = [
 	['fireball',~fireballpat],
 	['fireball',~fireballpat2],
+	['dragonpunch',["F_____",".D____","FDA___" ]],
 	['dragonpunch',~dragonpunchpat],
 	['dragonpunch',~dragonpunchpat2],
+	['dragonpunch',~dragonpunchpat3],
+	['dragonpunch',~dragonpunchpat4],
 	['whirlwind',~whirlwindpat],
-	['whirlwind',~whirlwindpat2]
+	['whirlwind',~whirlwindpat2],
+	['sonic',~sonic1],
+	['sonic',~sonic11],
+	['sonic',~sonic12],
+	['sonic',~sonic13],
+	['sonic',~sonic14],
+	['sonic',~sonic2],
+	['flashkick',~flashkick1],
+	['flashkick',[".D____",".U____","_U_B__"]],
+	['flashkick',~flashkick2]
 ];
 
 
 ~xbstr = {|msg|
 	~msgsetter.(msg);
+	~xbsyms.();
+};
+~xbsyms = {
 	[
-		if((~xLTHUMBX < 15)&&(~xLTHUMBX > -15),"_",
+		if((~xLTHUMBX < 30)&&(~xLTHUMBX > -30),"_",
 			if(~xLTHUMBX > 0,"F","B")),
-		if((~xLTHUMBY < 15)&&(~xLTHUMBY > -15),"_",
+		if((~xLTHUMBY < 30)&&(~xLTHUMBY > -30),"_",
 			if(~xLTHUMBY > 0,"U","D")),
 		if(~xA == 0,"_","A"),
 		if(~xB == 0,"_","B"),
@@ -172,28 +207,34 @@ y.set(\out,1);
 ~mkemitter = {|assoc|	
 	var func,state,pats;
 	pats = assoc.collect {|v| [v[0],~compilepat.(v[1])] };
-	state = Array.new(maxSize:100);
+	state = List.new();
 	func = {
 		|sym|
 		var str,emit;
-		state.add(sym);
-		str = state.join;
-		emit = "";
-		pats.collect { |v|
-			if(v[1].matchRegexp(str),{
-				emit = v[0];
-				state = Array.new(maxSize:100);
-			})
-		};
-		emit
+		if(sym=="______",{""},{
+			state.add(sym);
+			str = state.join;
+			emit = "";
+			//str.postln;
+			[\sym, sym].postln;
+			pats.collect { |v|
+				if(v[1].matchRegexp(str),{
+					emit = v[0];
+					state = List.new();
+				})
+			};			
+			emit
+		})
 	};
 	func
 };
 
+~moveemitter = ~mkemitter.(  ~patterns );
+
 
 ~looper = {
-	if(~xLTHUMBX != 0.0,{ ~xhz = (~xLTHUMBX/101.0) + ~xhz; x.set(\freq,~xhz) });
-	if(~xRTHUMBX != 0.0,{ ~yhz = (~xRTHUMBX/101.0) + ~yhz; y.set(\freq,~yhz) });
+	if(~xLTHUMBX != 0.0,{ ~xhz = (~xLTHUMBX/101.0) + ~xhz; ~x1.set(\freq,~xhz) });
+	if(~xRTHUMBX != 0.0,{ ~yhz = (~xRTHUMBX/101.0) + ~yhz; ~y1.set(\freq,~yhz) });
 	if(~xLTHUMBY != 0.0,{ ~x2hz = (~xLTHUMBY/101.0) + ~x2hz; ~x2.set(\freq,~x2hz) });
 	if(~xRTHUMBY != 0.0,{ ~y2hz = (~xRTHUMBY/101.0) + ~y2hz; ~y2.set(\freq,~y2hz) });
 
@@ -216,7 +257,46 @@ y.set(\out,1);
 	~h22.set(\amp,if(~xDPADX== -1,1,0));
 	~h23.set(\amp,if(~xDPADY==1,1,0));
 	~h24.set(\amp,if(~xDPADY== -1,1,0));
+
 };
+~fireballresponse = {
+	var synth = Synth(\hydro4);
+	synth.release(10);
+};
+
+~moveresponses = ('fireball':{|move| move.postln; ~fireballresponse.();  },
+	'dragonpunch':{	
+		|move|
+		var synth = Synth(\hydro4,[\freq,1024]);
+		move.postln;
+		synth.release(10);
+	},
+	'whirlwind':{	
+		|move|
+		var synth = Synth(\hydro4,[\freq,10000]);
+		move.postln;
+		synth.release(10);
+	},
+	'sonic':{	
+		|move|
+		var synth = Synth(\hydro4,[\freq,120]);
+		move.postln;
+		synth.release(2);
+	},
+	'flashkick':{	
+		|move|
+		var synth = Synth(\hydro4,[\freq,40]);
+		move.postln;
+		synth.release(5);
+	}
+
+);
+~moveresponder = {
+	|move|
+	var f = ~moveresponses.atFail(move,{});
+	f.(move);
+};
+
 
 fork {
 	loop {
@@ -224,6 +304,7 @@ fork {
 		(0.01).wait;
 	}
 };
+
 
 
 OSCFunc.newMatching(~listener, '/xbox');
