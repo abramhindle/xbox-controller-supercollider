@@ -216,7 +216,7 @@ SynthDef(\noise,
 			str = state.join;
 			emit = "";
 			//str.postln;
-			[\sym, sym].postln;
+			//[\sym, sym].postln;
 			pats.collect { |v|
 				if(v[1].matchRegexp(str),{
 					emit = v[0];
