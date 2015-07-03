@@ -1,7 +1,7 @@
 s.options.numBuffers = 16000;
 s.options.memSize = 655360;
 s.boot;
-s.freqscope;
+//s.freqscope;
 s.plotTree;
 s.scope;
 
@@ -169,13 +169,6 @@ s.scope;
 };
 
 
-fork {
-	loop {
-		~looper.();
-		(0.01).wait;
-	}
-};
-
 OSCFunc.newMatching(~listener, '/xbox');
 
 // Instrument the moveresponder
@@ -218,39 +211,8 @@ OSCFunc.newMatching(~listener, '/xbox');
 
 );
 
-// set up our looper to respond to xbox inputs continuously
 
-~looper = {
-	if(~xLTHUMBX != 0.0,{ ~xhz = (~xLTHUMBX/101.0) + ~xhz; ~x1.set(\freq,~xhz) });
-	if(~xRTHUMBX != 0.0,{ ~yhz = (~xRTHUMBX/101.0) + ~yhz; ~y1.set(\freq,~yhz) });
-	if(~xLTHUMBY != 0.0,{ ~x2hz = (~xLTHUMBY/101.0) + ~x2hz; ~x2.set(\freq,~x2hz) });
-	if(~xRTHUMBY != 0.0,{ ~y2hz = (~xRTHUMBY/101.0) + ~y2hz; ~y2.set(\freq,~y2hz) });
-
-	~rnoise.set(\amp,~xRTRIGGER/100.0);
-	~lnoise.set(\amp,~xLTRIGGER/100.0);
-	~lnoise.set(\freq,~xhz/10);
-	~rnoise.set(\freq,~yhz/10);
-	~anoise.set(\amp,~xA);
-	~bnoise.set(\amp,~xB);
-	~xnoise.set(\amp,~xX);
-	~ynoise.set(\amp,~xY);
-	~rbnoise.set(\amp,~xRB);
-	~lbnoise.set(\amp,~xLB);
-	~backnoise.set(\amp,~xBACK);
-	~startnoise.set(\amp,~xSTART);
-	~ltnoise.set(\amp,~xLEFTTHUMB);
-	~rtnoise.set(\amp,~xRIGHTTHUMB);
-
-	~h21.set(\amp,if(~xDPADX==1,1,0));
-	~h22.set(\amp,if(~xDPADX== -1,1,0));
-	~h23.set(\amp,if(~xDPADY==1,1,0));
-	~h24.set(\amp,if(~xDPADY== -1,1,0));
-
-};
-
-~flashkicklooper = ~soniclooper = ~whirlwindlooper = ~dragonpunchlooper = ~looper;
-
-
+(s.makeBundle(nil,{
 // Set up our instruments
 
 SynthDef(\noise, 
@@ -262,13 +224,155 @@ SynthDef(\noise,
         }
 ).add;
 
+SynthDef(\grainer,{ 
+	arg out=0,b,rho=1.0,theta=0.0,amp=0.4,pitchoff=0.3,graindur=0.1,trig=1;
+	Out.ar(out,
+		TGrains.ar(2, Dust.ar(40)*trig, b,
+			pitchoff+rho,
+			BufDur.kr(b)*theta.linlin(-3.14,3.14,0,1.0),
+			graindur,
+			WhiteNoise.kr(0.6), 
+			amp)
+	)
+}).add;
+SynthDef(\mouser,{
+	|theta,rho|
+	var x,y,rhov,thetav;
+	y = MouseY.kr(-1,1,0);
+	x = MouseX.kr(-1,1,0);
+	rhov = hypot(x,y);
+	thetav = atan2(y,x);
+	Out.kr(theta,thetav);
+	Out.kr(rho,rhov);
+}).add;
+SynthDef(\thetarho,{
+	arg theta,rho,x=0,y=0,div=1;
+	var rhov,thetav;
+	x = x / div;
+	y = y / div;
+	rhov = hypot(x,y);
+	thetav = atan2(y,x);
+	Out.kr(theta,thetav);
+	Out.kr(rho,rhov);
+}).add;
 
+~xb = Buffer.readChannel(s, "sounds-rand-tux-27975.wav", channels: [0]);
+~yb = Buffer.readChannel(s, "Sabatini-Scaramouche-short.wav", channels: [0]);
+~ab = Buffer.read(s, "SPO256-AL2.wav");
+~bb = Buffer.readChannel(s, "idlevocals.wav", channels: [0]);
+
+~rxb = Buffer.readChannel(s, "peergynt1.wav", channels: [0]);
+~ryb = Buffer.readChannel(s, "peergynt2.wav", channels: [0]);
+~rab = Buffer.readChannel(s, "peergynt3.wav", channels: [0]);
+~rbb = Buffer.readChannel(s, "peergynt4.wav", channels: [0]);
+
+
+s.sync;
 
 ~lnoise = Synth(\noise,[\amp,0,\out,0]);
-~lnoise.set(\amp,0.1)
-~lnoise.set(\freq,440)
+~lnoise.set(\amp,0.0);
+~lnoise.set(\freq,440);
+
+
+~rnoise = Synth(\noise,[\amp,0,\out,1]);
+~rnoise.set(\amp,0.0);
+~rnoise.set(\freq,440);
+
+
+// Buses for abstractions of sticks
+~lrho = Bus.control(s).set(0);
+~ltheta = Bus.control(s).set(0);
+~rrho = Bus.control(s).set(0);
+~rtheta = Bus.control(s).set(0);
+
+// Buses for buttons
+~xbb = Bus.control(s).set(0);
+~ybb = Bus.control(s).set(0);
+~abb = Bus.control(s).set(0);
+~bbb = Bus.control(s).set(0);
+
+// Make the grains and connect the maps
+
+~xgrain = Synth(\grainer,[\b,~xb.bufnum, \trig, ~xbb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~ygrain = Synth(\grainer,[\b,~yb.bufnum, \trig, ~ybb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~agrain = Synth(\grainer,[\b,~ab.bufnum, \trig, ~abb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~bgrain = Synth(\grainer,[\b,~bb.bufnum, \trig, ~bbb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+
+// Buses for sticks
+~lthumbxb = Bus.control(s).set(0);
+~lthumbyb = Bus.control(s).set(0);
+~rthumbxb = Bus.control(s).set(0);
+~rthumbyb = Bus.control(s).set(0);
+
+// Right stick stuff
+
+~rxgrain = Synth(\grainer,[\b,~rxb.bufnum, \trig, 0, \rho, ~rrho.asMap, \theta, ~rtheta.asMap]);
+~rygrain = Synth(\grainer,[\b,~ryb.bufnum, \trig, 0, \rho, ~rrho.asMap, \theta, ~rtheta.asMap]);
+~ragrain = Synth(\grainer,[\b,~rab.bufnum, \trig, 0, \rho, ~rrho.asMap, \theta, ~rtheta.asMap]);
+~rbgrain = Synth(\grainer,[\b,~rbb.bufnum, \trig, 0, \rho, ~rrho.asMap, \theta, ~rtheta.asMap]);
 
 
 
 
 
+
+
+~thetarhol = Synth(\thetarho,[\theta, ~ltheta, \rho, ~lrho,\div,100.0]);
+~thetarhor = Synth(\thetarho,[\theta, ~rtheta, \rho, ~rrho,\div,100.0]);
+
+~thetarhol.map(\x, ~lthumbxb);
+~thetarhol.map(\y, ~lthumbyb);
+
+~thetarhor.map(\x, ~rthumbxb);
+~thetarhor.map(\y, ~rthumbyb);
+
+
+
+
+
+// set up our looper to respond to xbox inputs continuously
+
+~looper = {
+	// use buses
+
+	~abb.set(~xA);
+	~bbb.set(~xB);
+	~xbb.set(~xX);
+	~ybb.set(~xY);
+	~lthumbxb.set(~xLTHUMBX);
+	~lthumbyb.set(~xLTHUMBY);
+	~rthumbxb.set(~xRTHUMBX);
+	~rthumbyb.set(~xRTHUMBY);
+
+	~lnoise.set(\amp,0.2*(~xLTRIGGER)/100.0);
+	~rnoise.set(\amp,0.2*(~xRTRIGGER)/100.0);
+	~lnoise.set(\freq,~xLTRIGGER.linlin(0,100,20,240));
+	~rnoise.set(\freq,~xRTRIGGER.linlin(0,100,240,1000));
+
+	~rxgrain.set(\trig,~xX*max(1,(~xRTHUMBX.abs+~xRTHUMBY.abs)));
+	~rygrain.set(\trig,~xY*max(1,(~xRTHUMBX.abs+~xRTHUMBY.abs)));
+	~ragrain.set(\trig,~xA*max(1,(~xRTHUMBX.abs+~xRTHUMBY.abs)));	
+	~rbgrain.set(\trig,~xB*max(1,(~xRTHUMBX.abs+~xRTHUMBY.abs)));
+
+};
+
+~flashkicklooper = ~soniclooper = ~whirlwindlooper = ~dragonpunchlooper = ~looper;
+
+});
+
+
+
+
+// invoke me at the end?
+fork {
+	loop {
+		~looper.();
+		(0.05).wait;
+	}
+};
+
+
+)
+// ~xA = ~xB = ~xX = ~xY = 0;
+// ~xLTHUMBX = ~xLTHUMBY = 105;
+//s.quit

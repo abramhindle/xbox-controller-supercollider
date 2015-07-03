@@ -264,7 +264,9 @@ class XboxController(threading.Thread):
         #run until the controller is stopped
         while(self.running):
             #react to the pygame events that come from the xbox controller
-            for event in pygame.event.get():
+            while True:
+	    	#for event in pygame.event.wait():
+	        event = pygame.event.wait()
 
                 #thumb sticks, trigger buttons                    
                 if event.type == JOYAXISMOTION:
