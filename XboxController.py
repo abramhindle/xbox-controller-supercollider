@@ -264,7 +264,7 @@ class XboxController(threading.Thread):
         #run until the controller is stopped
         while(self.running):
             #react to the pygame events that come from the xbox controller
-            while True:
+            if True:
 	    	#for event in pygame.event.wait():
 	        event = pygame.event.wait()
 
