@@ -5,9 +5,13 @@ import liblo
 
 target = liblo.Address(57120)
 
+last = time.time()
+
 if __name__ == '__main__':
 
     def controlCallBack(xboxControlId, value):
+        #now = time.time()
+        #if (now - last > 0.05):
         l = xboxCont.controlValues.values()
         myv = l[0:len(l)-1]+[l[len(l)-1][0],l[len(l)-1][1]]
         liblo.send(target, "/xbox", *myv)

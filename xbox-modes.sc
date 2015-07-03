@@ -60,14 +60,14 @@ s.scope;
 	//var xLTHUMBX ,xLTHUMBY ,xRTHUMBX ,xRTHUMBY ,xRTRIGGER ,xLTRIGGER ,xA ,xB ,xX ,xY ,xLB ,xRB ,xBACK ,xSTART ,xXBOX ,xLEFTTHUMB ,xRIGHTTHUMB ,xDPADX, xDPADY;
 	//msg.postln;
 	~msgsetter.(msg);
-	xbs = ~xbsyms.(msg);
-	//[\xbs,xbs].postln;
-	nmove = ~moveemitter.(xbs);
-	//if(nmove!="",{nmove.postln},{});
-	~moveresponder.( nmove  );
+	// xbs = ~xbsyms.(msg);
+	// //[\xbs,xbs].postln;
+	// nmove = ~moveemitter.(xbs);
+	// //if(nmove!="",{nmove.postln},{});
+	// ~moveresponder.( nmove  );
 
 };
-
+ 
 // move patterns
 
 ~fireballpat = ["_D____","FD____","F_A___" ];
@@ -225,9 +225,9 @@ SynthDef(\noise,
 ).add;
 
 SynthDef(\grainer,{ 
-	arg out=0,b,rho=1.0,theta=0.0,amp=0.4,pitchoff=0.3,graindur=0.1,trig=1;
+	arg out=0,b,rho=1.0,theta=0.0,amp=0.4,pitchoff=0.3,graindur=0.1,trig=1,grains=120;
 	Out.ar(out,
-		TGrains.ar(2, Dust.ar(40)*trig, b,
+		TGrains.ar(2, Dust.ar(grains)*trig, b,
 			pitchoff+rho,
 			BufDur.kr(b)*theta.linlin(-3.14,3.14,0,1.0),
 			graindur,
@@ -256,10 +256,44 @@ SynthDef(\thetarho,{
 	Out.kr(rho,rhov);
 }).add;
 
+SynthDef(\hydro4, {
+	|out=0,amp=1.0,freq=440,gate=1|
+	var nsize,n = (2..10);
+	nsize = n.size;
+	Out.ar(out,
+		EnvGen.kr(Env.cutoff(1), gate: gate, doneAction:2) *
+		amp * 
+		(
+			n.collect {arg i; 
+				SinOsc.ar( (1.0 - (1/(i*i))) * 2*freq ) +
+				SinOsc.ar( (1.0 - (1/(i*i))) * freq ) +
+				SinOsc.ar( ((1/4) - (1/((i+1)*(i+1)))) * freq)
+			}).sum / (3 * nsize)
+	)
+}).add;
+
+SynthDef(\hydro2, {
+	|out=0,amp=1.0,freq=440.0|
+	var nsize,n = (2..10);
+	nsize = n.size;
+	Out.ar(out,
+		amp * 
+		(
+			n.collect {arg i; 
+				SinOsc.ar( (1.0 - (1.0/(i*i))) * freq )
+			}).sum / nsize
+	)
+}).add;
+
+
+
+
 ~xb = Buffer.readChannel(s, "sounds-rand-tux-27975.wav", channels: [0]);
 ~yb = Buffer.readChannel(s, "Sabatini-Scaramouche-short.wav", channels: [0]);
 ~ab = Buffer.read(s, "SPO256-AL2.wav");
 ~bb = Buffer.readChannel(s, "idlevocals.wav", channels: [0]);
+~rb = Buffer.readChannel(s, "sounds-rand-tux-11508.wav", channels: [0]);  
+~lb = Buffer.readChannel(s, "sounds-rand-tux-1169.wav", channels: [0]);   
 
 ~rxb = Buffer.readChannel(s, "peergynt1.wav", channels: [0]);
 ~ryb = Buffer.readChannel(s, "peergynt2.wav", channels: [0]);
@@ -290,13 +324,17 @@ s.sync;
 ~ybb = Bus.control(s).set(0);
 ~abb = Bus.control(s).set(0);
 ~bbb = Bus.control(s).set(0);
+~rbbb = Bus.control(s).set(0);
+~lbbb = Bus.control(s).set(0);
 
 // Make the grains and connect the maps
 
-~xgrain = Synth(\grainer,[\b,~xb.bufnum, \trig, ~xbb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
-~ygrain = Synth(\grainer,[\b,~yb.bufnum, \trig, ~ybb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
-~agrain = Synth(\grainer,[\b,~ab.bufnum, \trig, ~abb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
-~bgrain = Synth(\grainer,[\b,~bb.bufnum, \trig, ~bbb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~xgrain  = Synth(\grainer,[\b,~xb.bufnum, \trig, ~xbb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~ygrain  = Synth(\grainer,[\b,~yb.bufnum, \trig, ~ybb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~agrain  = Synth(\grainer,[\b,~ab.bufnum, \trig, ~abb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~bgrain  = Synth(\grainer,[\b,~bb.bufnum, \trig, ~bbb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~lbgrain = Synth(\grainer,[\b,~lb.bufnum, \trig, ~lbbb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
+~rbgrain = Synth(\grainer,[\b,~rb.bufnum, \trig, ~rbbb.asMap, \rho, ~lrho.asMap, \theta, ~ltheta.asMap]);
 
 // Buses for sticks
 ~lthumbxb = Bus.control(s).set(0);
@@ -326,6 +364,15 @@ s.sync;
 ~thetarhor.map(\x, ~rthumbxb);
 ~thetarhor.map(\y, ~rthumbyb);
 
+~dpadup = Bus.control(s).set(0);
+~dpaddown = Bus.control(s).set(0);
+~dpadleft = Bus.control(s).set(0);
+~dpadright = Bus.control(s).set(0);
+
+~hydro1  = Synth(\hydro4,[\freq,128 , \amp, ~dpadup.asMap]);
+~hydro2  = Synth(\hydro4,[\freq,256 , \amp, ~dpaddown.asMap]);
+~hydro3  = Synth(\hydro4,[\freq,512 , \amp, ~dpadleft.asMap]);
+~hydro4  = Synth(\hydro4,[\freq,1024, \amp, ~dpadright.asMap]);
 
 
 
@@ -339,13 +386,16 @@ s.sync;
 	~bbb.set(~xB);
 	~xbb.set(~xX);
 	~ybb.set(~xY);
+	~rbbb.set(~xRB);
+	~lbbb.set(~xLB);
+
 	~lthumbxb.set(~xLTHUMBX);
 	~lthumbyb.set(~xLTHUMBY);
 	~rthumbxb.set(~xRTHUMBX);
 	~rthumbyb.set(~xRTHUMBY);
 
-	~lnoise.set(\amp,0.2*(~xLTRIGGER)/100.0);
-	~rnoise.set(\amp,0.2*(~xRTRIGGER)/100.0);
+	~lnoise.set(\amp,0.01*(~xLTRIGGER)/100.0);
+	~rnoise.set(\amp,0.01*(~xRTRIGGER)/100.0);
 	~lnoise.set(\freq,~xLTRIGGER.linlin(0,100,20,240));
 	~rnoise.set(\freq,~xRTRIGGER.linlin(0,100,240,1000));
 
@@ -353,13 +403,16 @@ s.sync;
 	~rygrain.set(\trig,~xY*max(1,(~xRTHUMBX.abs+~xRTHUMBY.abs)));
 	~ragrain.set(\trig,~xA*max(1,(~xRTHUMBX.abs+~xRTHUMBY.abs)));	
 	~rbgrain.set(\trig,~xB*max(1,(~xRTHUMBX.abs+~xRTHUMBY.abs)));
+	~dpadright.set(if(~xDPADX>0,1,0));
+	~dpadleft.set(if(~xDPADX<0,1,0));
+	~dpadup.set(if(~xDPADY>0,1,0));
+	~dpaddown.set(if(~xDPADY<0,1,0));
 
 };
 
 ~flashkicklooper = ~soniclooper = ~whirlwindlooper = ~dragonpunchlooper = ~looper;
 
 });
-
 
 
 
